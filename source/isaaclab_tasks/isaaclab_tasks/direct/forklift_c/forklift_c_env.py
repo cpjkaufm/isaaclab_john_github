@@ -22,7 +22,7 @@ import math
 
 # Two projects, currently working with STOP_TESTING
 lift_testing = False
-stop_testing = True
+stop_testing = False
 
 STOP_SIGN_CFG = RigidObjectCfg(
     prim_path="/World/envs/env_.*/StopSign",
@@ -330,7 +330,7 @@ class ForkliftEnv(DirectRLEnv):
             left_early = in_stop_zone & ~self._has_stopped & (torch.abs(throttle) > 0.05)
             penalty_for_ealy_move = left_early.float() * -5.0
 
-            # print("Reward: ", composite_reward)
+            #print("Reward: ", composite_reward)
 
             # Add rewards
             composite_reward += full_stop_complete + penalty_for_ealy_move + lingering_in_stop
@@ -375,12 +375,13 @@ class ForkliftEnv(DirectRLEnv):
         self.forklift_c.write_root_velocity_to_sim(forklift_c_velocities, env_ids)
         self.forklift_c.write_joint_state_to_sim(joint_positions, joint_velocities, None, env_ids)
 
+        # target_positions and marker_pos are the positions of the waypoints
         self._target_positions[env_ids, :, :] = 0.0
         self._markers_pos[env_ids, :, :] = 0.0
 
         spacing = 2 / self._num_goals
         target_positions = torch.arange(-0.8, 1.1, spacing, device=self.device) * self.env_spacing / self.course_length_coefficient
-        width_variance = 10.0
+        width_variance = 10.0 # previously 10
         self._target_positions[env_ids, :len(target_positions), 0] = target_positions
         self._target_positions[env_ids, :, 1] = torch.rand((num_reset, self._num_goals), dtype=torch.float32, device=self.device) * width_variance + self.course_length_coefficient
         self._target_positions[env_ids, :] += self.scene.env_origins[env_ids, :2].unsqueeze(1)
