@@ -28,7 +28,7 @@ STOP_SIGN_CFG = RigidObjectCfg(
     prim_path="/World/envs/env_.*/StopSign",
     spawn=UsdFileCfg(
         # THIS PATH WILL NEED TO BE ALTERED FOR YOUR OWN CODE
-        usd_path="C:/Users/scmiatwo/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/direct/forklift_john_c/custom_assets/STOP.usd",
+        usd_path="C:/IsaacLab/source/isaaclab_tasks/isaaclab_tasks/direct/forklift_john_c/custom_assets/STOP.usd",
         scale=(0.2, 0.2, 0.2),
         collision_props=CollisionPropertiesCfg(
             collision_enabled=True,
@@ -276,6 +276,11 @@ class ForkliftEnv(DirectRLEnv):
             goal_reached * self.goal_reached_bonus +
             reverse_bonus + forward_penalty
         )
+
+        joint_positions_a = self.forklift_john_c.data.joint_pos[:, self._steering_dof_idx].squeeze(-1)
+        print("Joint positions A: ", joint_positions_a)
+        #joint_positions_b = self.forklift_john_c.get_joint_positions()
+        #print("Joint positions B: ", joint_positions_b)
 
         # Reward information for moving the forks (old project)
         if lift_testing:
