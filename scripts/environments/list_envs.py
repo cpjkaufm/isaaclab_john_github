@@ -43,6 +43,10 @@ def main():
     # count of environments
     index = 0
     # acquire all Isaac environments names
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+    print(gym.registry.values())
+    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+
     for task_spec in gym.registry.values():
         if "Isaac" in task_spec.id:
             # add details to table
