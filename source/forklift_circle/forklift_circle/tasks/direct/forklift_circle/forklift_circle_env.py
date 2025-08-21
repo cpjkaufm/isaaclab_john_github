@@ -23,6 +23,7 @@ import math
 # Two projects, currently working with STOP_TESTING
 lift_testing = False
 stop_testing = False
+circle_testing = True
 
 STOP_SIGN_CFG = RigidObjectCfg(
     prim_path="/World/envs/env_.*/StopSign",
@@ -162,7 +163,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         throttle_scale = 10
         throttle_max = 50
         steering_scale = 0.1
-        steering_max = 0.75
+        steering_max = 3.0
 
         """ This code had to be changed to reflect the 4 throttle joints and 2 steering joint """
         self._throttle_action = actions[:, 0].repeat_interleave(4).reshape((-1, 4)) * (throttle_scale)
@@ -277,6 +278,9 @@ class ForkliftCircleEnv(DirectRLEnv):
             reverse_bonus + forward_penalty
         )
 
+        #print("Initial Reward: ", composite_reward)
+
+
         # Reward information for moving the forks (old project)
         if lift_testing:
             # Distance to goal (already computed)
@@ -330,13 +334,32 @@ class ForkliftCircleEnv(DirectRLEnv):
             left_early = in_stop_zone & ~self._has_stopped & (torch.abs(throttle) > 0.05)
             penalty_for_ealy_move = left_early.float() * -5.0
 
-            #print("Reward: ", composite_reward)
 
             # Add rewards
             composite_reward += full_stop_complete + penalty_for_ealy_move + lingering_in_stop
 
         ''' END OF REWARD SECTION FOR STOPPING AT A STOP SIGN '''
 
+        if circle_testing:
+            
+            steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx].squeeze(-1)
+            first_steer_pos = steer_joint_positions[0][0].item()
+            second_steer_pos = steer_joint_positions[0][1].item()
+            
+            print("Steer joint positions are: ", steer_joint_positions)
+            print("First is: ", first_steer_pos)
+            print("Second is: ", second_steer_pos)
+
+            # We only go one way on this rig
+            turn_penalty = 0.0
+            if first_steer_pos < -0.2:
+                turn_penalty = -20.0
+            elif first_steer_pos > 0.2:
+                turn_penalty = 20.0
+
+            tensor_reward = torch.tensor(first_steer_pos, device=self.device, dtype=torch.float32)
+            composite_reward = tensor_reward
+        
 
         one_hot_encoded = torch.nn.functional.one_hot(self._target_index.long(), num_classes=self._num_goals)
         marker_indices = one_hot_encoded.view(-1).tolist()
@@ -344,6 +367,8 @@ class ForkliftCircleEnv(DirectRLEnv):
 
         if torch.any(composite_reward.isnan()):
             raise ValueError("Rewards cannot be NAN")
+
+        print("Final reward was: ", composite_reward)
 
         return composite_reward
 
