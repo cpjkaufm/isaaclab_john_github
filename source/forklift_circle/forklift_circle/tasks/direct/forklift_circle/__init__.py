@@ -17,9 +17,7 @@ gym.register(
     entry_point=f"{__name__}.forklift_circle_env:ForkliftCircleEnv",
     disable_env_checker=True,
     kwargs={
-        "env_cfg_entry_point": f"{__name__}.forklift_circle_env_cfg:ForkliftCircleEnvCfg",
-        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
-        "skrl_amp_cfg_entry_point": f"{agents.__name__}:skrl_amp_cfg.yaml",
+        "env_cfg_entry_point": f"{__name__}.forklift_circle_env:ForkliftCircleEnvCfg",
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
     },
 )
