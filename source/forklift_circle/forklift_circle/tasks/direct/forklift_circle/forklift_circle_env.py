@@ -28,9 +28,9 @@ class ForkliftCircleEnvCfg(DirectRLEnvCfg):
     # Reflects the length of training segment
     episode_length_s = 40.0
 
-    if circle_testing or 1==1: # The state space used to be dynamic based on what test was being done, but now it's all 2-8
+    if circle_testing or 1==1: # The state space used to be dynamic based on what test was being done, but now it's static
         action_space = 2
-        observation_space = 8
+        observation_space = 5
 
     state_space = 0
     sim: SimulationCfg = SimulationCfg(dt=1 / 30, render_interval=decimation)
@@ -65,6 +65,8 @@ class ForkliftCircleEnv(DirectRLEnv):
         self._throttle_state = torch.zeros((self.num_envs,4), device=self.device, dtype=torch.float32)
         self._steering_state = torch.zeros((self.num_envs,2), device=self.device, dtype=torch.float32)
 
+        self.env_spacing = self.cfg.env_spacing
+        self.course_width_coefficient = 2.0
 
     def _setup_scene(self):
         # Create a large ground plane without grid
@@ -120,19 +122,8 @@ class ForkliftCircleEnv(DirectRLEnv):
 
     def _get_observations(self) -> dict:
 
-        heading = self.forklift_c.data.heading_w
-        target_heading_w = torch.atan2(
-            self._target_positions[self.forklift_c._ALL_INDICES, self._target_index, 1] - self.forklift_c.data.root_link_pos_w[:, 1],
-            self._target_positions[self.forklift_c._ALL_INDICES, self._target_index, 0] - self.forklift_c.data.root_link_pos_w[:, 0],
-        )
-        self.target_heading_error = torch.atan2(torch.sin(target_heading_w - heading), torch.cos(target_heading_w - heading))
-
-
         # Defines the input that we give to the ML algorithm
         obs_parts = [
-            self._position_error.unsqueeze(dim=1),
-            torch.cos(self.target_heading_error).unsqueeze(dim=1),
-            torch.sin(self.target_heading_error).unsqueeze(dim=1),
             self.forklift_c.data.root_lin_vel_b[:, 0].unsqueeze(dim=1),
             self.forklift_c.data.root_lin_vel_b[:, 1].unsqueeze(dim=1),
             self.forklift_c.data.root_ang_vel_w[:, 2].unsqueeze(dim=1),
@@ -174,8 +165,13 @@ class ForkliftCircleEnv(DirectRLEnv):
 
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        get_dones is expected by IsaacLab.
+        I think it is used for saying whether an environment should be reset or not?
+        If either return is true (it needs two returns), then it does something.
+        """
         task_failed = self.episode_length_buf > self.max_episode_length
-        return task_failed, self.task_completed
+        return task_failed, task_failed
 
     def _reset_idx(self, env_ids: Sequence[int] | None):
         if env_ids is None:
