@@ -342,23 +342,17 @@ class ForkliftCircleEnv(DirectRLEnv):
 
         if circle_testing:
             
-            steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx].squeeze(-1)
-            first_steer_pos = steer_joint_positions[0][0].item()
-            second_steer_pos = steer_joint_positions[0][1].item()
+            steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx]#.squeeze(-1)
+            steer_penalty = torch.sum(torch.abs(steer_joint_positions), dim=1) # Penalize large steering angles 
             
-            print("Steer joint positions are: ", steer_joint_positions)
-            print("First is: ", first_steer_pos)
-            print("Second is: ", second_steer_pos)
+            #first_steer_pos = steer_joint_positions[0][0].item()
+            #second_steer_pos = steer_joint_positions[0][1].item()
+            """
+            if abs(first_steer_pos) > 1.5 or abs(second_steer_pos) > 1.5:
+            """
 
-            # We only go one way on this rig
-            turn_penalty = 0.0
-            if first_steer_pos < -0.2:
-                turn_penalty = -20.0
-            elif first_steer_pos > 0.2:
-                turn_penalty = 20.0
-
-            tensor_reward = torch.tensor(first_steer_pos, device=self.device, dtype=torch.float32)
-            composite_reward = tensor_reward
+            #tensor_reward = torch.tensor(first_steer_pos, device=self.device, dtype=torch.float32)
+            composite_reward = steer_penalty
         
 
         one_hot_encoded = torch.nn.functional.one_hot(self._target_index.long(), num_classes=self._num_goals)
