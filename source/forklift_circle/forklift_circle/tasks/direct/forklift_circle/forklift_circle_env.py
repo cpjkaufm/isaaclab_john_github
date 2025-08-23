@@ -57,6 +57,8 @@ class ForkliftCircleEnv(DirectRLEnv):
 
     def __init__(self, cfg: ForkliftEnvCfg, render_mode: str | None = None, **kwargs):
         super().__init__(cfg, render_mode, **kwargs)
+
+        # Get references to the joints for throttle and steering
         self._throttle_dof_idx, _ = self.forklift_c.find_joints(self.cfg.throttle_dof_name)
         self._steering_dof_idx, _ = self.forklift_c.find_joints(self.cfg.steering_dof_name)
 
@@ -100,22 +102,42 @@ class ForkliftCircleEnv(DirectRLEnv):
 
 
     def _pre_physics_step(self, actions: torch.Tensor) -> None:
-        throttle_scale = 10
-        throttle_max = 50
-        steering_scale = 0.1
-        steering_max = 3.0
+        """
+        Calculate values for the next step of the physics simulation
+        """
 
-        """ This code had to be changed to reflect the 4 throttle joints and 2 steering joint """
+        # The actions inputs comes from the RL algorithm, and is expected to be a tensor of shape (num_envs, action_space)
+        # Action_space is the number of actions that the robot can take
+        # The values of action_space start as two randomly generated numbers
+        # But they will begin to get weighted towards rewarded values
+        # :0 is throttle, :1 is steering
+
+        #print(actions)
+
+        throttle_scale = 100 # Previously 10.0
+        throttle_max = 10000 # Previously 50
+        throttle_min = 0
+        
+        # Use 4 for repeat_interlave and reshape to match the number of throttle joints
         self._throttle_action = actions[:, 0].repeat_interleave(4).reshape((-1, 4)) * (throttle_scale)
-        self._throttle_action = torch.clamp(self._throttle_action, -throttle_max, throttle_max)
+        self._throttle_action = torch.clamp(self._throttle_action, throttle_min, throttle_max)
         self._throttle_state = self._throttle_action
         
+        # Pro-tip rapid steer angles change cause the truck to turn into a bucking bronco
+        steering_scale = 0.2 # Previously 0.1
+        steering_max = 10.0 # Previously 3.0
+        steering_min = -steering_max
+
+        # Use 2 for repeat_interleave and reshape to match the number of steering joints
         self._steering_action = actions[:, 1].repeat_interleave(2).reshape((-1, 2)) * steering_scale
-        self._steering_action = torch.clamp(self._steering_action, -steering_max, steering_max)
+        self._steering_action = torch.clamp(self._steering_action, steering_min, steering_max)
         self._steering_state = self._steering_action
 
 
     def _apply_action(self) -> None:
+        """
+        Apply the actions to the robot
+        """
         self.forklift_c.set_joint_velocity_target(self._throttle_action, joint_ids=self._throttle_dof_idx)
         self.forklift_c.set_joint_position_target(self._steering_state, joint_ids=self._steering_dof_idx)
 
@@ -144,16 +166,18 @@ class ForkliftCircleEnv(DirectRLEnv):
         Based on the current state of the robot(s), calculate a reward function
         """
 
-
         # Reverse reward logic
         fwd_dir = self.forklift_c.data.root_lin_vel_w[..., :2]  # Approximate forward direction
         fwd_dir = torch.nn.functional.normalize(fwd_dir, dim=-1)
 
-            
+        throttle_joint_velocities = self.forklift_c.data.joint_vel[:, self._throttle_dof_idx]
+        throttle_penalty = torch.sum(torch.abs(throttle_joint_velocities), dim=1)
+
         # This results in the truck driving in a sharp circle, albeit slowly
         steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx]
-        steer_penalty = torch.sum(torch.abs(steer_joint_positions), dim=1) # Penalize large steering angles 
-        composite_reward = steer_penalty
+        steer_penalty = torch.sum(torch.abs(steer_joint_positions), dim=1) 
+        
+        composite_reward = throttle_penalty + steer_penalty
         
         if torch.any(composite_reward.isnan()):
             raise ValueError("Rewards cannot be NAN")
