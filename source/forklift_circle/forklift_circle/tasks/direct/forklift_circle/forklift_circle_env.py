@@ -139,12 +139,11 @@ class ForkliftCircleEnv(DirectRLEnv):
         return {"policy": obs}
     
 
-    #####################################
-    #
-    #   This is THE reward function
-    #
-    #####################################
     def _get_rewards(self) -> torch.Tensor:
+        """
+        Based on the current state of the robot(s), calculate a reward function
+        """
+
 
         # Reverse reward logic
         fwd_dir = self.forklift_c.data.root_lin_vel_w[..., :2]  # Approximate forward direction
@@ -164,16 +163,10 @@ class ForkliftCircleEnv(DirectRLEnv):
         return composite_reward
 
 
-    def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
-        """
-        get_dones is expected by IsaacLab.
-        I think it is used for saying whether an environment should be reset or not?
-        If either return is true (it needs two returns), then it does something.
-        """
-        task_failed = self.episode_length_buf > self.max_episode_length
-        return task_failed, task_failed
-
     def _reset_idx(self, env_ids: Sequence[int] | None):
+        """
+        Reset the forklift with some pseudo-random init conditions
+        """
         if env_ids is None:
             env_ids = self.forklift_c._ALL_INDICES
         super()._reset_idx(env_ids)
@@ -196,3 +189,12 @@ class ForkliftCircleEnv(DirectRLEnv):
         self.forklift_c.write_root_pose_to_sim(forklift_c_pose, env_ids)
         self.forklift_c.write_root_velocity_to_sim(forklift_c_velocities, env_ids)
         self.forklift_c.write_joint_state_to_sim(joint_positions, joint_velocities, None, env_ids)
+
+    def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
+        """
+        get_dones is expected by IsaacLab.
+        I think it is used for saying whether an environment should be reset or not?
+        If either return is true (it needs two returns), then it does something.
+        """
+        task_failed = self.episode_length_buf > self.max_episode_length
+        return task_failed, task_failed
