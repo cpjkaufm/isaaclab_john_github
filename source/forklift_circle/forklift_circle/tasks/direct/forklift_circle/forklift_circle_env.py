@@ -39,17 +39,20 @@ class ForkliftCircleEnvCfg(DirectRLEnvCfg):
     # Register the joints to their respective functions
     throttle_dof_name = [
         "left_front_wheel_joint",
-        "left_back_wheel_joint",
+        # "left_back_wheel_joint",
         "right_front_wheel_joint",
-        "right_back_wheel_joint",
+        # "right_back_wheel_joint",
     ]
     steering_dof_name = [
         "left_rotator_joint",
         "right_rotator_joint",
     ]
 
+    num_throttle_joints = len(throttle_dof_name)
+    num_steer_joints = len(steering_dof_name)
+
     # Some parameters for scene generation
-    env_spacing = 60.0
+    env_spacing = 10.0 # Contols the initial spacing between envs at each reset
     scene: InteractiveSceneCfg = InteractiveSceneCfg(num_envs=4096, env_spacing=env_spacing, replicate_physics=True)
 
 class ForkliftCircleEnv(DirectRLEnv):
@@ -119,7 +122,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         throttle_min = 0
         
         # Use 4 for repeat_interlave and reshape to match the number of throttle joints
-        self._throttle_action = actions[:, 0].repeat_interleave(4).reshape((-1, 4)) * (throttle_scale)
+        self._throttle_action = actions[:, 0].repeat_interleave(self.cfg.num_throttle_joints).reshape((-1, self.cfg.num_throttle_joints)) * (throttle_scale)
         self._throttle_action = torch.clamp(self._throttle_action, throttle_min, throttle_max)
         self._throttle_state = self._throttle_action
         
@@ -129,7 +132,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         steering_min = -steering_max
 
         # Use 2 for repeat_interleave and reshape to match the number of steering joints
-        self._steering_action = actions[:, 1].repeat_interleave(2).reshape((-1, 2)) * steering_scale
+        self._steering_action = actions[:, 1].repeat_interleave(self.cfg.num_steer_joints).reshape((-1, self.cfg.num_steer_joints)) * steering_scale
         self._steering_action = torch.clamp(self._steering_action, steering_min, steering_max)
         self._steering_state = self._steering_action
 
