@@ -14,7 +14,7 @@ from isaaclab.assets import ArticulationCfg
 WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../../"))
 
 # USD path with proper resolution for cross-platform compatibility
-USD_PATH = os.path.join(WORKSPACE_ROOT, "forklift_circle", "tasks", "direct", "forklift_circle", "forklift_c.usd")
+USD_PATH = os.path.join(WORKSPACE_ROOT, "forklift_circle", "tasks", "direct", "forklift_circle", "forklift_c_top_heavy.usd")
 
 FORKLIFT_C_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
