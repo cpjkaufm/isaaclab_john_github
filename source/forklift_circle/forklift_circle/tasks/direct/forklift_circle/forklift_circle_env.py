@@ -25,8 +25,9 @@ circle_testing = True
 @configclass
 class ForkliftCircleEnvCfg(DirectRLEnvCfg):
     decimation = 4
-    # Reflects the length of training segment
-    episode_length_s = 40.0
+    
+    # Control how long an episode lasts
+    episode_length_s = 25.0
 
     if circle_testing or 1==1: # The state space used to be dynamic based on what test was being done, but now it's static
         action_space = 2
@@ -39,9 +40,9 @@ class ForkliftCircleEnvCfg(DirectRLEnvCfg):
     # Register the joints to their respective functions
     throttle_dof_name = [
         "left_front_wheel_joint",
-        # "left_back_wheel_joint",
+        #"left_back_wheel_joint",
         "right_front_wheel_joint",
-        # "right_back_wheel_joint",
+        #"right_back_wheel_joint",
     ]
     steering_dof_name = [
         "left_rotator_joint",
@@ -117,9 +118,9 @@ class ForkliftCircleEnv(DirectRLEnv):
 
         #print(actions)
 
-        throttle_scale = 100 # Previously 10.0
+        throttle_scale = 5000 # Previously 10.0
         throttle_max = 10000 # Previously 50
-        throttle_min = 0
+        throttle_min = -throttle_max
         
         # Use 4 for repeat_interlave and reshape to match the number of throttle joints
         self._throttle_action = actions[:, 0].repeat_interleave(self.cfg.num_throttle_joints).reshape((-1, self.cfg.num_throttle_joints)) * (throttle_scale)
@@ -128,7 +129,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         
         # Pro-tip rapid steer angles change cause the truck to turn into a bucking bronco
         steering_scale = 0.2 # Previously 0.1
-        steering_max = 10.0 # Previously 3.0
+        steering_max = 0.0 # Previously 3.0
         steering_min = -steering_max
 
         # Use 2 for repeat_interleave and reshape to match the number of steering joints
@@ -169,14 +170,11 @@ class ForkliftCircleEnv(DirectRLEnv):
         Based on the current state of the robot(s), calculate a reward function
         """
 
-        # Reverse reward logic
-        fwd_dir = self.forklift_c.data.root_lin_vel_w[..., :2]  # Approximate forward direction
-        fwd_dir = torch.nn.functional.normalize(fwd_dir, dim=-1)
-
+        # Reward for throttle joint velocities
         throttle_joint_velocities = self.forklift_c.data.joint_vel[:, self._throttle_dof_idx]
         throttle_penalty = torch.sum(torch.abs(throttle_joint_velocities), dim=1)
 
-        # This results in the truck driving in a sharp circle, albeit slowly
+        # Reward for steer angle joint positions
         steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx]
         steer_penalty = torch.sum(torch.abs(steer_joint_positions), dim=1) 
         
@@ -209,7 +207,9 @@ class ForkliftCircleEnv(DirectRLEnv):
         forklift_c_pose[:, 0] -= self.env_spacing / 2
         forklift_c_pose[:, 1] += 2.0 * torch.rand((num_reset), dtype=torch.float32, device=self.device) * self.course_width_coefficient
 
-        angles = torch.pi / 6.0 * torch.rand((num_reset), dtype=torch.float32, device=self.device)
+        # At reset, set the forklift to a random angle in the range of 0 to angle_range radians
+        angle_range = torch.pi / 0.5
+        angles = angle_range * torch.rand((num_reset), dtype=torch.float32, device=self.device)
         forklift_c_pose[:, 3] = torch.cos(angles * 0.5)
         forklift_c_pose[:, 6] = torch.sin(angles * 0.5)
 
