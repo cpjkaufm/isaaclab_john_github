@@ -39,9 +39,9 @@ class ForkliftCircleEnvCfg(DirectRLEnvCfg):
 
     # Register the joints to their respective functions
     throttle_dof_name = [
-        "left_front_wheel_joint",
+        #"left_front_wheel_joint",
         "left_back_wheel_joint",
-        "right_front_wheel_joint",
+        #"right_front_wheel_joint",
         "right_back_wheel_joint",
     ]
     steering_dof_name = [
