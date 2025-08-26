@@ -16,6 +16,19 @@ WORKSPACE_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../
 # USD path with proper resolution for cross-platform compatibility
 USD_PATH = os.path.join(WORKSPACE_ROOT, "forklift_circle", "tasks", "direct", "forklift_circle", "forklift_c_top_heavy.usd")
 
+
+# Register the joints to their respective functions
+throttle_dof_name = [
+    #"left_front_wheel_joint",
+    "left_back_wheel_joint",
+    #"right_front_wheel_joint",
+    "right_back_wheel_joint",
+]
+steering_dof_name = [
+    "left_rotator_joint",
+    "right_rotator_joint",
+]
+
 FORKLIFT_C_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
         usd_path=USD_PATH,

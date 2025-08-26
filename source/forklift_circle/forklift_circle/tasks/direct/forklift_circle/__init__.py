@@ -19,5 +19,6 @@ gym.register(
     kwargs={
         "env_cfg_entry_point": f"{__name__}.forklift_circle_env:ForkliftCircleEnvCfg",
         "skrl_cfg_entry_point": f"{agents.__name__}:skrl_ppo_cfg.yaml",
+        "rsl_rl_cfg_entry_point": f"{agents.__name__}.rsl_rl_ppo_cfg:PPORunnerCfg",
     },
 )
