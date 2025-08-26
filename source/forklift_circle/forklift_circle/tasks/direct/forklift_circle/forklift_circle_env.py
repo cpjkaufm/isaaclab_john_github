@@ -24,7 +24,7 @@ class ForkliftCircleEnvCfg(DirectRLEnvCfg):
     decimation = 4
     
     # Control how long an episode lasts
-    episode_length_s = 15.0
+    episode_length_s = 30.0
 
     if ROBOT_TYPE == 0:
         action_space = 2
@@ -221,11 +221,14 @@ class ForkliftCircleEnv(DirectRLEnv):
         fully_stopped = (lin_speed < 0.1) & (torch.abs(throttle) < 0.05)
 
         self._timers += 1
+        timer_passed = self._timers > 100
 
-        timer_passed = self._timers > 5
+        print("Timers: ", self._timers)
+        print("Timer passed: ", timer_passed)
 
         over_limit = timer_passed & ~fully_stopped
-        not_stopped_punish = -50.0 * over_limit.float()
+        abs_throttle_penalty = torch.sum(torch.abs(throttle_joint_velocities), dim=1)
+        not_stopped_punish = -3.0 * over_limit.float() * abs_throttle_penalty
 
         composite_reward += not_stopped_punish
 
