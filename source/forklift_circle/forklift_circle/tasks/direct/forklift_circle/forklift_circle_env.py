@@ -71,6 +71,12 @@ class ForkliftCircleEnv(DirectRLEnv):
         self.env_spacing = self.cfg.env_spacing
         self.course_width_coefficient = 0.0
 
+        # Have it stop moving after n seconds
+        self._moving_timer = torch.zeros(self.num_envs, device=self.device, dtype=torch.int32)
+        self._has_moved = torch.zeros(self.num_envs, device=self.device, dtype=torch.bool)
+        self._timers = torch.zeros(self.num_envs, device=self.device, dtype=torch.float32)
+
+
     def _setup_scene(self):
         # Create a large ground plane without grid
         spawn_ground_plane(
@@ -139,8 +145,8 @@ class ForkliftCircleEnv(DirectRLEnv):
 
         elif ROBOT_TYPE == 1:
             steering_scale = 0.0
-            steering_max = 70.0
-            steering_min = -70.0
+            steering_max = 0.0
+            steering_min = -0.0
 
         # Use 2 for repeat_interleave and reshape to match the number of steering joints
         self._steering_action = actions[:, 1].repeat_interleave(self.cfg.num_steer_joints).reshape((-1, self.cfg.num_steer_joints)) * steering_scale
@@ -157,6 +163,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         Apply the actions to the robot
         """
         self.forklift_c.set_joint_velocity_target(self._throttle_action, joint_ids=self._throttle_dof_idx)
+        
         self.forklift_c.set_joint_position_target(self._steering_state, joint_ids=self._steering_dof_idx)
 
 
@@ -186,7 +193,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         Based on the current state of the robot(s), calculate a reward function
         """
 
-        # Reward for throttle joint velocities
+        ### Reward for throttle joint velocities
         throttle_joint_velocities = self.forklift_c.data.joint_vel[:, self._throttle_dof_idx]
         throttle_joint_positions = self.forklift_c.data.joint_pos[:, self._throttle_dof_idx]
 
@@ -197,7 +204,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         composite_reward = throttle_penalty
        
 
-        # Reward for steer angle joint positions
+        ### Reward for steer angle joint positions
         steer_joint_velocities = self.forklift_c.data.joint_vel[:, self._steering_dof_idx]
         steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx]
 
@@ -208,6 +215,20 @@ class ForkliftCircleEnv(DirectRLEnv):
         steer_penalty = 2.0 * torch.sum(torch.abs(steer_joint_positions), dim=1) 
         composite_reward -= steer_penalty
         
+        ### Reward for stopping after n seconds
+        lin_speed = torch.norm(self.forklift_c.data.root_lin_vel_b[:, :2], dim=-1)
+        throttle = self.actions[..., 0]
+        fully_stopped = (lin_speed < 0.1) & (torch.abs(throttle) < 0.05)
+
+        self._timers += 1
+
+        timer_passed = self._timers > 5
+
+        over_limit = timer_passed & ~fully_stopped
+        not_stopped_punish = -50.0 * over_limit.float()
+
+        composite_reward += not_stopped_punish
+
         if torch.any(composite_reward.isnan()):
             raise ValueError("Rewards cannot be NAN")
 
@@ -244,6 +265,8 @@ class ForkliftCircleEnv(DirectRLEnv):
         self.forklift_c.write_root_pose_to_sim(forklift_c_pose, env_ids)
         self.forklift_c.write_root_velocity_to_sim(forklift_c_velocities, env_ids)
         self.forklift_c.write_joint_state_to_sim(joint_positions, joint_velocities, None, env_ids)
+
+        self._timers[env_ids] = 0.0
 
     def _get_dones(self) -> tuple[torch.Tensor, torch.Tensor]:
         """
