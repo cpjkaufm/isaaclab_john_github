@@ -18,9 +18,9 @@ USD_PATH = os.path.join(WORKSPACE_ROOT, "forklift_circle", "tasks", "direct", "f
 
 # Register the joints to their respective functions
 hybot_throttle_dof_name = [
-    #"front_left_wheel_joint",
+    "front_left_wheel_joint",
     "back_left_joint",
-    #"front_right_wheel_joint",
+    "front_right_wheel_joint",
     "back_right_joint",
 ]
 
@@ -28,7 +28,6 @@ hybot_steering_dof_name = [
     "front_left_steer_joint",
     "front_right_steer_joint",
 ]
-
 
 HYBOT_C_CFG = ArticulationCfg(
     spawn=sim_utils.UsdFileCfg(
@@ -56,6 +55,8 @@ HYBOT_C_CFG = ArticulationCfg(
             "back_left_joint": 0.0,
             "front_right_wheel_joint": 0.0,
             "back_right_joint": 0.0,
+            "front_left_steer_joint": 0.0,
+            "front_right_steer_joint": 0.0,
         },
     ),
     actuators={
@@ -65,6 +66,16 @@ HYBOT_C_CFG = ArticulationCfg(
             velocity_limit=50.0, #100.0,
             stiffness=0.0, #2000.0,
             damping=100000.0, #500.0,
-        )
+        ),
+        "steering": ImplicitActuatorCfg(
+            joint_names_expr=hybot_steering_dof_name,
+            effort_limit=1.0, #4000.0,
+            velocity_limit=100.0,
+            effort_limit_sim=1.0,
+            velocity_limit_sim=100.0,
+            stiffness=10000.0, #2000.0,
+            damping=0.0, #300.0,
+            friction=5000.0
+        ),
     },
 )

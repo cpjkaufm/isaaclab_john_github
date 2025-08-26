@@ -18,13 +18,13 @@ USD_PATH = os.path.join(WORKSPACE_ROOT, "forklift_circle", "tasks", "direct", "f
 
 
 # Register the joints to their respective functions
-throttle_dof_name = [
-    #"left_front_wheel_joint",
+forklift_throttle_dof_name = [
+    "left_front_wheel_joint",
     "left_back_wheel_joint",
-    #"right_front_wheel_joint",
+    "right_front_wheel_joint",
     "right_back_wheel_joint",
 ]
-steering_dof_name = [
+forklift_steering_dof_name = [
     "left_rotator_joint",
     "right_rotator_joint",
 ]
@@ -63,14 +63,14 @@ FORKLIFT_C_CFG = ArticulationCfg(
     ),
     actuators={
         "throttle": ImplicitActuatorCfg(
-            joint_names_expr=[".*wheel_joint"],
+            joint_names_expr=forklift_throttle_dof_name,
             effort_limit=100.0, #400.0,
             velocity_limit=50.0, #100.0,
             stiffness=0.0, #2000.0,
             damping=100000.0, #500.0,
         ),
         "steering": ImplicitActuatorCfg(
-            joint_names_expr=[".*_rotator_joint"],
+            joint_names_expr=forklift_steering_dof_name,
             effort_limit=2000.0, #4000.0,
             velocity_limit=100.0,
             stiffness=10000.0, #2000.0,

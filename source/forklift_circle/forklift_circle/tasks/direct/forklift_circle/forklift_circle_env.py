@@ -10,11 +10,14 @@ from isaaclab.sim import SimulationCfg
 from isaaclab.sim.spawners.from_files import GroundPlaneCfg, spawn_ground_plane
 from isaaclab.utils import configclass
 from .forklift_c import FORKLIFT_C_CFG
+from .forklift_c import forklift_throttle_dof_name
+from .forklift_c import forklift_steering_dof_name
+
 from .hybot_c import HYBOT_C_CFG
 from .hybot_c import hybot_throttle_dof_name
 from .hybot_c import hybot_steering_dof_name
 
-ROBOT_TYPE = 1 # 0 for forklift with steering, 1 for straight line hybot
+ROBOT_TYPE = 1 # 0 for forklift with steering, 1 for hybot
 
 @configclass
 class ForkliftCircleEnvCfg(DirectRLEnvCfg):
@@ -28,20 +31,20 @@ class ForkliftCircleEnvCfg(DirectRLEnvCfg):
         observation_space = 5
 
     elif ROBOT_TYPE == 1:
-        action_space = 1
-        observation_space = 4
+        action_space = 2
+        observation_space = 5
 
     state_space = 0
     sim: SimulationCfg = SimulationCfg(dt=1 / 30, render_interval=decimation)
 
     if ROBOT_TYPE == 0:
         robot_cfg: ArticulationCfg = FORKLIFT_C_CFG.replace(prim_path="/World/envs/env_.*/Robot")
-        throttle_dof_name = FORKLIFT_C_CFG.throttle_dof_name
-        steering_dof_name = FORKLIFT_C_CFG.steering_dof_name
+        throttle_dof_name = forklift_throttle_dof_name
+        steering_dof_name = forklift_steering_dof_name
     elif ROBOT_TYPE == 1:
         robot_cfg: ArticulationCfg = HYBOT_C_CFG.replace(prim_path="/World/envs/env_.*/Robot")
         throttle_dof_name = hybot_throttle_dof_name
-        steering_dof_name = []
+        steering_dof_name = hybot_steering_dof_name
 
     num_throttle_joints = len(throttle_dof_name)
     num_steer_joints = len(steering_dof_name)
@@ -63,9 +66,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         # Populate the states of the joints with 0 values to start
         # The num in (self.num_envs, _) must reflect the number of joints associated with that function
         self._throttle_state = torch.zeros((self.num_envs, self.cfg.num_throttle_joints), device=self.device, dtype=torch.float32)
-
-        if  ROBOT_TYPE == 0:
-            self._steering_state = torch.zeros((self.num_envs, self.cfg.num_steer_joints), device=self.device, dtype=torch.float32)
+        self._steering_state = torch.zeros((self.num_envs, self.cfg.num_steer_joints), device=self.device, dtype=torch.float32)
 
         self.env_spacing = self.cfg.env_spacing
         self.course_width_coefficient = 0.0
@@ -118,8 +119,8 @@ class ForkliftCircleEnv(DirectRLEnv):
             throttle_min = -throttle_max
         
         elif ROBOT_TYPE == 1:
-            throttle_scale = 10
-            throttle_max = 25
+            throttle_scale = 10.0
+            throttle_max = 20.0
             throttle_min = -throttle_max
 
 
@@ -133,44 +134,43 @@ class ForkliftCircleEnv(DirectRLEnv):
         if ROBOT_TYPE == 0:
             # Pro-tip rapid steer angles change cause the truck to turn into a bucking bronco
             steering_scale = 0.2 # Previously 0.1
-            steering_max = 0.0 # Previously 3.0
+            steering_max = 10.0 # Previously 3.0
             steering_min = -steering_max
 
-            # Use 2 for repeat_interleave and reshape to match the number of steering joints
-            self._steering_action = actions[:, 1].repeat_interleave(self.cfg.num_steer_joints).reshape((-1, self.cfg.num_steer_joints)) * steering_scale
-            self._steering_action = torch.clamp(self._steering_action, steering_min, steering_max)
-            self._steering_state = self._steering_action
+        elif ROBOT_TYPE == 1:
+            steering_scale = 0.0
+            steering_max = 70.0
+            steering_min = -70.0
 
+        # Use 2 for repeat_interleave and reshape to match the number of steering joints
+        self._steering_action = actions[:, 1].repeat_interleave(self.cfg.num_steer_joints).reshape((-1, self.cfg.num_steer_joints)) * steering_scale
+        self._steering_action = torch.clamp(self._steering_action, steering_min, steering_max)
+        self._steering_state = self._steering_action
+
+        print("Steering action: ", self._steering_action)
+
+        #print(self._steering_dof_idx)
+        #print(self.forklift_c.data.joint_names)
 
     def _apply_action(self) -> None:
         """
         Apply the actions to the robot
         """
         self.forklift_c.set_joint_velocity_target(self._throttle_action, joint_ids=self._throttle_dof_idx)
-
-        if ROBOT_TYPE == 0:
-            self.forklift_c.set_joint_position_target(self._steering_state, joint_ids=self._steering_dof_idx)
+        self.forklift_c.set_joint_position_target(self._steering_state, joint_ids=self._steering_dof_idx)
 
 
     def _get_observations(self) -> dict:
 
         # Defines the input that we give to the ML algorithm
 
-        if ROBOT_TYPE == 0:
+        if ROBOT_TYPE == 0 or ROBOT_TYPE == 1:
             obs_parts = [
                 self.forklift_c.data.root_lin_vel_b[:, 0].unsqueeze(dim=1),
                 self.forklift_c.data.root_lin_vel_b[:, 1].unsqueeze(dim=1),
                 self.forklift_c.data.root_ang_vel_w[:, 2].unsqueeze(dim=1),
                 self._throttle_state[:, 0].unsqueeze(dim=1),
                 self._steering_state[:, 0].unsqueeze(dim=1),
-            ]
-
-        elif ROBOT_TYPE == 1:
-            obs_parts = [
-                self.forklift_c.data.root_lin_vel_b[:, 0].unsqueeze(dim=1),
-                self.forklift_c.data.root_lin_vel_b[:, 1].unsqueeze(dim=1),
-                self.forklift_c.data.root_ang_vel_w[:, 2].unsqueeze(dim=1),
-                self._throttle_state[:, 0].unsqueeze(dim=1),
             ]
 
         obs = torch.cat(obs_parts, dim=-1)
@@ -188,22 +188,25 @@ class ForkliftCircleEnv(DirectRLEnv):
 
         # Reward for throttle joint velocities
         throttle_joint_velocities = self.forklift_c.data.joint_vel[:, self._throttle_dof_idx]
-        throttle_penalty = torch.sum(throttle_joint_velocities, dim=1)
+        throttle_joint_positions = self.forklift_c.data.joint_pos[:, self._throttle_dof_idx]
 
         print("Throttle joint velocities: ", throttle_joint_velocities)
+        print("Throttle joint positions: ", throttle_joint_positions)
 
+        throttle_penalty = torch.sum(throttle_joint_velocities, dim=1)
         composite_reward = throttle_penalty
-
-        steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx]
-        print("Steer joint positions: ", steer_joint_positions)
-        
+       
 
         # Reward for steer angle joint positions
-        if ROBOT_TYPE == 0:
-            steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx]
-            steer_penalty = torch.sum(torch.abs(steer_joint_positions), dim=1) 
-        
-            composite_reward += steer_penalty
+        steer_joint_velocities = self.forklift_c.data.joint_vel[:, self._steering_dof_idx]
+        steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx]
+
+        print("Steer joint velocities: ", steer_joint_velocities)
+        print("Steer joint positions: ", steer_joint_positions)
+
+        # Punish steer angles that aren't straight
+        steer_penalty = 2.0 * torch.sum(torch.abs(steer_joint_positions), dim=1) 
+        composite_reward -= steer_penalty
         
         if torch.any(composite_reward.isnan()):
             raise ValueError("Rewards cannot be NAN")
