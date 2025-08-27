@@ -37,7 +37,7 @@ class ForkliftCircleEnvCfg(DirectRLEnvCfg):
 
     elif ROBOT_TYPE == ROBOT_TYPE_HYBOT:
         action_space = 1
-        observation_space = 1
+        observation_space = 4
 
     state_space = 0
     sim: SimulationCfg = SimulationCfg(dt=1 / 30, render_interval=decimation)
@@ -194,6 +194,9 @@ class ForkliftCircleEnv(DirectRLEnv):
 
         elif ROBOT_TYPE == ROBOT_TYPE_HYBOT:
             obs_parts = [
+                self.forklift_c.data.root_lin_vel_b[:, 0].unsqueeze(dim=1),
+                self.forklift_c.data.root_lin_vel_b[:, 1].unsqueeze(dim=1),
+                self._throttle_state[:, 0].unsqueeze(dim=1),
                 self._timers.unsqueeze(dim=1),
             ]
 
