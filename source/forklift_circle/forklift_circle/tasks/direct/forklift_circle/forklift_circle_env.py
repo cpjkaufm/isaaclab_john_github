@@ -258,7 +258,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         # Punish for not being stopped
         abs_throttle_penalty = torch.sum(torch.abs(throttle_joint_velocities), dim=1)
         not_stopped_punish = -5.0 * timer_passed.float() * abs_throttle_penalty
-        composite_reward += not_stopped_punish
+        #composite_reward += not_stopped_punish
 
         if torch.any(composite_reward.isnan()):
             raise ValueError("Rewards cannot be NAN")
