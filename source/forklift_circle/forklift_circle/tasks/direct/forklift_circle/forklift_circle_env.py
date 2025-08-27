@@ -211,14 +211,14 @@ class ForkliftCircleEnv(DirectRLEnv):
         Based on the current state of the robot(s), calculate a reward function
         """
 
-        print("Root lin vel b: ", self.forklift_c.data.root_lin_vel_b)
-        print("Root ang vel w: ", self.forklift_c.data.root_ang_vel_w)
+        #print("Root lin vel b: ", self.forklift_c.data.root_lin_vel_b)
+        #print("Root ang vel w: ", self.forklift_c.data.root_ang_vel_w)
 
         ### Reward for throttle joint velocities
         throttle_joint_velocities = self.forklift_c.data.joint_vel[:, self._throttle_dof_idx]
         throttle_joint_positions = self.forklift_c.data.joint_pos[:, self._throttle_dof_idx]
 
-        print("Throttle joint velocities: ", throttle_joint_velocities)
+        #print("Throttle joint velocities: ", throttle_joint_velocities)
         #print("Throttle joint positions: ", throttle_joint_positions)
 
         throttle_penalty = torch.sum(throttle_joint_velocities, dim=1)
@@ -230,7 +230,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         steer_joint_positions = self.forklift_c.data.joint_pos[:, self._steering_dof_idx]
 
         #print("Steer joint velocities: ", steer_joint_velocities)
-        print("Steer joint positions: ", steer_joint_positions)
+        #print("Steer joint positions: ", steer_joint_positions)
 
         # Punish steer angles that aren't straight
         steer_penalty = 2.0 * torch.sum(torch.abs(steer_joint_positions), dim=1) 
@@ -241,7 +241,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         # Decrement timers
         self._timers -= 1
         timer_passed = self._timers < 0
-        print("Timer passed: ", timer_passed)
+        #print("Timer passed: ", timer_passed)
 
         # Determine if the truck is stopped, and throttle is near 0
         lin_speed = torch.norm(self.forklift_c.data.root_lin_vel_b[:, :2], dim=-1)
@@ -260,7 +260,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         if torch.any(composite_reward.isnan()):
             raise ValueError("Rewards cannot be NAN")
 
-        print("Final reward was: ", composite_reward)
+        #print("Final reward was: ", composite_reward)
 
         return composite_reward
 
@@ -304,7 +304,7 @@ class ForkliftCircleEnv(DirectRLEnv):
         """
         task_failed = self.episode_length_buf > self.max_episode_length
 
-        if task_failed.any():
-            print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
+        #if task_failed.any():
+        #    print("~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~")
 
         return task_failed, task_failed
